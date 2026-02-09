@@ -8,10 +8,6 @@ test.beforeEach(async ({page}) => {
     })
   })
   await page.goto('https://conduit.bondaracademy.com/')
-  await page.getByText('Sign in').click()
-  await page.getByRole('textbox', {name: "Email"}).fill('filip.biro@gmail.com')
-  await page.getByRole('textbox', {name: 'Password'}).fill('password123')
-  await page.getByRole('button').click()
 })
 
 test('has title', async ({page}) => {
@@ -34,18 +30,7 @@ test('has title', async ({page}) => {
 })
 
 test('delete article', async ({page, request}) => {
-  const response = await request.post('https://conduit-api.bondaracademy.com/api/users/login', {
-    data: {
-      "user": {
-        "email": "filip.biro@gmail.com", 
-        "password": "password123"
-      }
-    }
-  })
-
-  const responseBody = await response.json()
-  const accessToken = responseBody.user.token
-
+ 
   const articleResponse = await request.post('https://conduit-api.bondaracademy.com/api/articles/', {
     data: {
       "article": {
@@ -54,9 +39,6 @@ test('delete article', async ({page, request}) => {
         "body": "This is a test body"
       }
     },
-    headers: {
-      Authorization:`Token ${accessToken}`
-    }
   })
   expect (articleResponse.status()).toEqual(201)
 
@@ -66,4 +48,26 @@ test('delete article', async ({page, request}) => {
   await page.getByText('Global Feed').click()
   
   await expect(page.locator('app-article-list h1').first()).not.toContainText('This is a test title')
+})
+
+test('create article', async ({page, request}) => {
+  await page.getByText('New Article').click()
+  await page.getByRole('textbox', {name: 'Article Title'}).fill('Playwright is awesome')
+  await page.getByRole('textbox', {name: 'What\'s this article about?'}).fill('About Playwright')
+  await page.getByRole('textbox', {name: 'Write your article (in markdown)'}).fill('We use Playwright for automation')
+  await page.getByRole('button', {name: 'Publish Article'}).click()
+
+  const articleReponse = await page.waitForResponse('https://conduit-api.bondaracademy.com/api/articles/')
+  const articleResponseBody = await articleReponse.json()
+  const slugId = articleResponseBody.article.slug
+
+  await expect(page.locator('.article-page h1')).toContainText('Playwright is awesome')
+  await page.getByText('Home').click()
+  await page.getByText('Global Feed').click()
+
+  await expect(page.locator('app-article-list h1').first()).toContainText('Playwright is awesome')
+
+  const deleteArticleResponse = await request.delete(`https://conduit-api.bondaracademy.com/api/articles/${slugId}`)
+
+  expect(deleteArticleResponse.status()).toEqual(204)
 })
